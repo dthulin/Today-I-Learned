@@ -17,12 +17,12 @@ class HelpscoutAuthService {
         return this._access_token;
     }
     logIn() {
-        fs.readFile('./hsAuth.js', (err, data) => {
+        fs.readFile('./NodeFunctionCanOverwriteFileContainingFunction.js', (err, data) => {
             let textChunk = data.toString('utf8');
             getNewAuthToken()
                 .then(token => {
                     textChunk = textChunk.replace(this._access_token, token);
-                    fs.writeFile('./hsAuth.js', textChunk, function (err) {
+                    fs.writeFile('./NodeFunctionCanOverwriteFileContainingFunction.js', textChunk, function (err) {
                         if (err) throw err;
                         console.log('Saved New Helpscout Auth Code!');
                     });
