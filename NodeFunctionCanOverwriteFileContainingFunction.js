@@ -1,5 +1,5 @@
 /*
-I discovered that a function can overwrite the very file that contains the function.
+I discovered that in Node.js a function can overwrite the very file that contains the function.
 I find it very interesting. The concept of a program that can rewrite itself is kind of fun.
 However, this is probably more of a what not to do, as you could lose the whole file if implemented, by overwriting with an error or something similar.
 Here's an example of it saving a new access token. But again, it would be wiser to stick the access token in a separate file.
