@@ -11,7 +11,7 @@ let fs = require('fs');
 let env = require('./env');
 class HelpscoutAuthService {
     constructor() {
-        this._access_token = 'TOTALLYOBSFUCATEDTOKEN';
+        this._access_token = 'TOTALLYOBFUSCATEDTOKEN';
     }
     get access_token() {
         return this._access_token;
