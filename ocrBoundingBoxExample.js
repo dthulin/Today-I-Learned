@@ -1,11 +1,31 @@
 /*
 This was a fun use case, we had a tax program that prints out K1 PDFs.
+
 They look like this: https://www.irs.gov/pub/irs-pdf/f1065sk1.pdf
-We extracted the data with the pdf2json NPM, but we needed to know which text field belonged to which section. We had X,Y coordinates of the top left corner of the text boxes, and we began by just grabbing them, as they seemed pretty static. They weren't.
-The problem was that every time the tax program was updated, something in charge of printing out the K1s would change the coordinate positioning. Sometimes this was small, and sometimes it was massive and the whole scale would change. Because the program was changing scale drastically, we didn't think we could use bounding boxes without a lot of overlap. We kept having to add more individual sets of coordinates to our switch, and it was becoming unruly.
-Then I had a thought. Up to this point we had been ignoring the lines. We didn't care about them, they were only there for formatting the info for humans to parse, right? But we were getting all the lines, their x, y, length, and horziontal/vertical tragectories. The amount of lines, their relative lengths and positions remained constant through this all. It dawned on me that I could take all the lines, sort them by their positions and lengths and have them always end up in the same order. From this I could take the xs and ys from specific lines to form bounding boxes that would dynamically be able to identify the data contained in the box.
-Now we only have to update the code once per year, as the form changes, instead of every time the tax program recieves an update.
-Note, if memory serves some of the text boxes top left corners for this year were printing out consistantly in a different bounding box than you would assume by looking at it. IE, the text would be inside of the box when printed, but the top left coordinates would be outside the lines. But in all those cases, the other boxes also had the same offset, so we never got data that should have been in another box.
+
+We extracted the data with the pdf2json NPM, but we needed to know which text field belonged to which section. We had X,Y
+coordinates of the top left corner of the text boxes, and we began by just grabbing them, as they seemed pretty static.
+They weren't.
+
+The problem was that every time the tax program was updated, something in charge of printing out the K1s would change the
+coordinate positioning. Sometimes this was small, and sometimes it was massive and the whole scale would change. Because
+the program was changing scale drastically, we didn't think we could use bounding boxes without a lot of overlap. We kept
+having to add more individual sets of coordinates to our switch, and it was becoming unruly.
+
+Then I had a thought. Up to this point we had been ignoring the lines. We didn't care about them, they were only there for
+formatting the info for humans to parse, right? But we were getting all the lines, their x, y, length, and
+horziontal/vertical tragectories. The amount of lines, their relative lengths and positions remained constant through this
+all. It dawned on me that I could take all the lines, sort them by their positions and lengths and have them always end up
+in the same order. From this I could take the xs and ys from specific lines to form bounding boxes that would dynamically
+be able to identify the data contained in the box.
+
+Now we only have to update the code once per year, as the form changes, instead of every time the tax program recieves an
+update.
+
+Note, if memory serves some of the text boxes top left corners for this year were printing out consistantly in a different
+bounding box than you would assume by looking at it. IE, the text would be inside of the box when printed, but the top left
+coordinates would be outside the lines. But in all those cases, the other boxes also had the same offset, so we never got
+data that should have been in another box.
 */
 let PDFParser = require("pdf2json");
 let pdfParser = new PDFParser();
