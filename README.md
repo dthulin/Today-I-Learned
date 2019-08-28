@@ -5,4 +5,4 @@ This will contain a collection of notes and code snippets that others might find
 - OCR Dynamic Bounding Box Example(https://github.com/dthulin/Today-I-Learned/blob/master/ocrDynamicBoundingBoxExample.js)
 - Big O Natation Tricks
 # Bad Ideas:
-- [Overwrite File From Function Contained in File in Node.js](https://github.com/dthulin/Today-I-Learned/blob/master/NodeFunctionCanOverwriteFileContainingFunction.js)
+- [Overwrite File from Function Contained in File in Node.js](https://github.com/dthulin/Today-I-Learned/blob/master/NodeFunctionCanOverwriteFileContainingFunction.js)
