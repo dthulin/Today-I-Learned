@@ -19,8 +19,8 @@ all. It dawned on me that I could take all the lines, sort them by their positio
 in the same order. From this I could take the xs and ys from specific lines to form bounding boxes that would dynamically
 be able to identify the data contained in the box.
 
-Now we only have to update the code once per year, as the form changes, instead of every time the tax program recieves an
-update.
+Now we only have to update the code once per year, as the form changes yearly, instead of every time the tax program
+recieves an update.
 
 Note, if memory serves some of the text boxes top left corners for this year were printing out consistantly in a different
 bounding box than you would assume by looking at it. IE, the text would be inside of the box when printed, but the top left
