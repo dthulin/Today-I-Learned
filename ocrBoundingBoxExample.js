@@ -24,8 +24,9 @@ recieves an update.
 
 Note, if memory serves some of the text boxes top left corners for this year were printing out consistantly in a different
 bounding box than you would assume by looking at it. IE, the text would be inside of the box when printed, but the top left
-coordinates would be outside the lines. But in all those cases, the other boxes also had the same offset, so we never got
-data that should have been in another box.
+coordinates would be outside the lines, either in the margin or in another bounding box. But in all those cases, the other
+boxes also had the same offset, so we never got data that should have been in another box. The boxes starting in the margin
+is also why everything in the left column has 0 passed in to their far left coordinates array.
 */
 let PDFParser = require("pdf2json");
 let pdfParser = new PDFParser();
