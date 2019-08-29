@@ -1,10 +1,10 @@
 /*
-Mapping is one of my favorite ways of avoiding nested For loops. There are several MAPs in this example that deal with using
-emails to find accounts with transactions and their associated orders. In this example we are parsing emails from an external
-system that is sending account change details to an inbox prior to the build out of an API, and exporting them into a CSV for
-an ops team so they can review how it will affect orders that will be shipped. (Once a data transfer is complete a better
-solution would be API and/or webhooks, but this was the use case... kind of... it's been modified drastically from my
-original code and use case to protect trade secrets).
+Mapping is the best way to avoid nested For loops. There are several MAPs in this example that deal with using emails to find
+accounts with transactions and their associated orders. In this example we are parsing emails from an external system that is
+sending account change details to an inbox prior to the build out of an API, and exporting them into a CSV for an ops team so
+they can review how it will affect orders that will be shipped. (Once a data transfer is complete a better solution would be
+API and/or webhooks, but this was the use case... kind of... it's been modified drastically from my original code and use
+case to protect trade secrets).
 
 It's tempting for a new programmer to approach this type of problem with a lot of nested For loops. When all you know how to
 use is a hammer, everything you see is a nail, after all. But with the quantity of data that this was built for it would take
