@@ -1,5 +1,5 @@
 /*
-Mapping is the best way to avoid nested For loops. There are several MAPs in this example that deal with using emails to find
+Mapping is the best way to avoid nested For loops. There are several Maps in this example that deal with using emails to find
 accounts with transactions and their associated orders. In this example we are parsing emails from an external system that is
 sending account change details to an inbox prior to the build out of an API, and exporting them into a CSV for an ops team so
 they can review how it will affect orders that will be shipped. (Once a data transfer is complete a better solution would be
@@ -8,14 +8,17 @@ case to protect trade secrets).
 
 It's tempting for a new programmer to approach this type of problem with a lot of nested For loops. When all you know how to
 use is a hammer, everything you see is a nail, after all. But with the quantity of data that this was built for it would take
-several minutes to process that way. The use of MAPs here reduces that time down to a matter of seconds. MAPs are pretty
-standard data structures in many strongly typed languages but they took a while to get to javascript.
+several minutes to process that way. However, even when the data sets you're dealin with should always be limited, it's best
+to be in the habit of double checking every time you're about to use a For loop to see if you're already in an iterative
+loop. Defaulting to the use of Maps will prevent your code from becoming a bottle neck down the road as things begin to scale.
+The use of Maps here reduces that time down to a matter of seconds. Maps are pretty standard data structures in many strongly
+typed languages but they took a while to get to javascript.
 
 Note the term "Map" in javascript can be used to reference 2 seperate things:
 
 First, there's the funciton Array.prototype.map():
 https://developer.mozilla.org/en-US/docs/web/javascript/reference/global_objects/array/map
-This is a useful function, but not what the type of "MAP" I'm addressing here.
+This is a useful function, but not what the type of "Map" I'm addressing here.
 
 Secondly, there's the Map Object:
 https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map
@@ -31,7 +34,7 @@ mapping to the uninitiated by using the JSON structure which the programmer is p
 demonstrates how, even in a language where a Map Object has not yet been added to the framework (they're rare, but still out
 there. I'm looking at you, AutoIT https://www.autoitscript.com/forum/topic/178187-maps-101-all-you-need-to-know-about-them/
 where, last I checked, they're still in beta), with a little bit of ingenuity you should be able to find a way to make a
-makeshift map anyway. Even if the preformance isn't as optimal as it would be with a MAP Object specifically designed for
+makeshift map anyway. Even if the preformance isn't as optimal as it would be with a Map Object specifically designed for
 the task, it's still going to be much better than a bunch of nested for loops.
 */
 
