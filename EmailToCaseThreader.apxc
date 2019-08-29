@@ -1,0 +1,286 @@
+/*
+ * Salesforce's Email to Case is a great tool, but it has some issues. First you aren't able currently to merge Cases easily,
+ * although, it looks like the idea is finally in beta: https://success.salesforce.com/ideaView?id=08730000000IG6hAAG
+ * Second, you can't move an Email from one Case to another, even though the idea is over 10 years old, it doesn't yet have
+ * enough votes to get eyes on it: https://success.salesforce.com/ideaView?id=08730000000BrRPAA0
+ * These problems are exacerbated by the fact that the out of the box Email to Case threader relies solely on attaching a
+ * unique ID to the body of outgoing emails like a footnote, that it will search for on every email that comes in. But when
+ * a user doesn't use the reply to feature, or if they delete the contents of the email reply body before composing their
+ * response, email threads can get broken up throughout a chain of cases that are hard to string back together, and tough
+ * on an Ops team.
+ * 
+ * The following is a proof of concept solution to improve email threading within the confines of the Salesforce Email to
+ * Case structure. This was intended to be implemented by having a process in the process builder call the threader every
+ * time a new Email was added to the system. This was showing promise in testing, but eventually got shelved as a descision
+ * was made to interact with Clients with another medium. I was really proud of this work at the time. It sniffs out the
+ * headers for standard email threading items like message Ids. One could build on this with more robust logic, but it's a
+ * good jumping off point.
+ * 
+ * I did find the code for dynamic SELECT * style queries somewhere else, and can't take credit for them, but I think I did
+ * modify them slightly. My rule to avoid copy pasta is to only use code when you understand it on a level that you can 
+ * rewrite it completely from the ground up. That being said, this was pretty early in my Coding days, and I may not have
+ * been as strict on that front as I am now. Also there are several things that can be improved, but I am not going to take
+ * the time at the moment.
+ */
+
+public with sharing class EmailToCaseThreader {
+  @InvocableMethod(label='Email to Case Threader' description='Identifies emails that should belong to the same thread, and ensures they are merged into the same case.')
+  public static void EmailToCaseThreader(emailValues[] values) {
+    for(emailValues value : values) {
+        EmailMessage newEmail = new EmailMessage();
+        Id newEmailId = value.emailId;
+        /*
+         * What follows is essentailly an artificial SELECT * statement workaround since Salesforce doesn't have one.
+         * Our objective here is to get any/all custom fields so we don't need to update the code later.
+         */
+        // Initialize setup variables
+        String objectName = 'EmailMessage';
+        String query = 'SELECT';
+        Map<String, Schema.SObjectField> objectFields = Schema.getGlobalDescribe().get(objectName).getDescribe().fields.getMap();
+        // Grab the fields from the describe method and append them to the queryString one by one.
+        for(String field : objectFields.keySet()) {
+          query += ' ' + field + ',';
+        }
+        // Manually add related object's fields that are needed.
+        query += 'Parent.RecordTypeId,Parent.CaseNumber,Parent.ParentId,';
+        // Strip off the last comma if it exists.
+        if (query.subString(query.Length()-1,query.Length()) == ','){
+          query = query.subString(0,query.Length()-1);
+        }
+        // Add FROM statement
+        query += ' FROM ' + objectName;
+        // Add on a WHERE/ORDER/LIMIT statement as needed
+        query += ' WHERE Id = :newEmailId';
+        try { 
+          newEmail = database.query(query);
+        } catch (QueryException e){
+          //Perform exception handling here.
+        }
+        /*
+         * End SELECT * statment
+         */
+        QueueEmailThreader updateJob = new QueueEmailThreader(newEmail);
+        Id emailJobId = System.enqueueJob(updateJob);
+      }
+    }
+    public class emailValues {
+      @InvocableVariable(label='Email Id' description='Id for Email' required=true)
+      public Id emailId;
+    }
+    public class QueueEmailThreader implements Queueable {
+      private EmailMessage newEmail;
+      public QueueEmailThreader(EmailMessage email) {
+        this.newEmail = email;
+      }
+      public void execute(QueueableContext context) {
+        String objectName;
+        String query;
+        String messageId;
+        String inReplyTo = '';
+        String references = '';
+        String originalMessageId = '';
+        Map<String, Schema.SObjectField> objectFields = new Map<String, Schema.SObjectField>();
+        Set<String> messageIds = new Set<String>();
+        List<String> headers = new List<String>();
+        List<EmailMessage> relatedEmails = new List<EmailMessage>();
+        Set<EmailMessage> oldEmailsSet = new Set<EmailMessage>();
+        List<EmailMessage> oldEmails = new List<EmailMessage>();
+        List<Attachment> newEmailAttachments = new List<Attachment>();
+        Case newCase = new Case();
+        Case oldCase = new Case();
+        Id newEmailId = newEmail.Id;
+        Set<Id> oldCaseIds = new Set<Id>();
+        
+        // parse the headers for Message-IDs
+        headers = newEmail.Headers.Split('\n');
+        for(String header: headers) {
+          List<String> headerKeyValuePair = header.Split(': ');
+			    string key = headerKeyValuePair[0];
+			    string value = (headerKeyValuePair.size() > 1) ? headerKeyValuePair[1] : '';
+			    if (key=='Message-ID') {
+            // Store Message-ID on new email record.
+			    	messageId = getFirstMessageIdFromHeaderValue(value);
+            newEmail.Header_Message_ID__c = messageId;
+            // Some emails don't like to be updated when you have all fields, so we'll do a query to specifically update the Header_Message_ID__c field so we don't get an error like this one:
+            // "EXCEPTION_THROWN [81]|System.DmlException: Update failed. First exception on row 0 with id 02sf4000001TwL5AAK; first error: INVALID_OPERATION, operation is not allowed: []"
+            EmailMessage thisEmail = [SELECT Id, Header_Message_ID__c FROM EmailMessage WHERE Id = :newEmailId];
+            thisEmail.Header_Message_ID__c = messageId;
+            update thisEmail;
+            // Add to search array
+            messageIds.add(messageId);
+          }
+			    if (key=='In-Reply-To') {
+            if (value.indexOf('<') != -1 && value.indexOf('>') != -1) {
+              inReplyTo = getFirstMessageIdFromHeaderValue(value);
+              // Add to search array
+              messageIds.add(inReplyTo);
+            }
+          }
+			    if (key=='References') {
+            if (value.indexOf('<') != -1 && value.indexOf('>') != -1) {
+              references = getFirstMessageIdFromHeaderValue(value);
+              // Add to search array
+              messageIds.add(references);
+            }
+			    }
+			    if (key=='Original-Message-ID') {
+            if (value.indexOf('<') != -1 && value.indexOf('>') != -1) {
+              originalMessageId = getFirstMessageIdFromHeaderValue(value);
+              // Add to search array
+              messageIds.add(originalMessageId);
+            }
+			    }
+        }
+        
+        // Get list of related emails baised on message ID
+        /*
+         * What follows is essentailly an artificial SELECT * statement workaround
+         * Our objective here is to get any/all custom fields so we don't need to update the code later.
+         */
+        // Initialize setup variables
+        objectName = 'EmailMessage';
+        query = 'SELECT';
+        objectFields = Schema.getGlobalDescribe().get(objectName).getDescribe().fields.getMap();
+        // Grab the fields from the describe method and append them to the queryString one by one.
+        for(String field : objectFields.keySet()) {
+          query += ' ' + field + ',';
+        }
+        // Manually add related object's fields that are needed.
+        query += 'Parent.RecordTypeId,Parent.CaseNumber,Parent.ParentId,Parent.Status,Parent.Reason,';
+        // Strip off the last comma if it exists.
+        if (query.subString(query.Length()-1,query.Length()) == ','){
+          query = query.subString(0,query.Length()-1);
+        }
+        // Add FROM statement
+        query += ' FROM ' + objectName;
+        // Add on a WHERE/ORDER/LIMIT statement as needed
+        query += ' WHERE Header_Message_ID__c IN :messageIds';
+        query += ' AND Parent.Reason != \'Duplicate\'';
+        query += ' AND Id != :newEmailId';
+        query += ' ORDER BY CreatedDate ASC';
+        try {
+          relatedEmails = database.query(query);
+        } catch (QueryException e){
+          //Perform exception handling here.
+        }
+			/*
+			 * End SELECT * statment
+			 */
+			oldEmailsSet.addAll(relatedEmails);
+      
+      // Get list of other related emails baised on to, from, and subject but only if it's a reply
+      if (inReplyTo != '' || references != '' || originalMessageId != '' || newEmail.Subject.startsWithIgnoreCase('Re:')) {
+      /*
+       * What follows is essentailly an artificial SELECT * statement workaround
+       * Our objective here is to get any/all custom fields so we don't need to update the code later.
+       */
+      // Initialize setup variables
+      objectName = 'EmailMessage';
+      query = 'SELECT';
+      objectFields = Schema.getGlobalDescribe().get(objectName).getDescribe().fields.getMap();
+      // Grab the fields from the describe method and append them to the queryString one by one.
+      for(String field : objectFields.keySet()) {
+        query += ' ' + field + ',';
+      }
+      // Manually add related object's fields that are needed.
+      query += 'Parent.RecordTypeId,Parent.CaseNumber,Parent.ParentId,Parent.Status,Parent.Reason,';
+      // Strip off the last comma if it exists.
+      if (query.subString(query.Length()-1,query.Length()) == ','){
+        query = query.subString(0,query.Length()-1);
+      }
+      // Add FROM statement
+      query += ' FROM ' + objectName;
+      // Add on a WHERE/ORDER/LIMIT statement as needed
+      query += ' WHERE Subject LIKE \'%' + newEmail.Subject.removeStartIgnoreCase('Re:').trim() +'%\'';
+      query += ' AND (FromAddress LIKE \'%'+ newEmail.FromAddress +'%\' OR ToAddress LIKE \'%'+ newEmail.FromAddress +'%\')';
+      query += ' AND Parent.Reason != \'Duplicate\'';
+      query += ' AND Id != :newEmailId';
+      query += ' ORDER BY CreatedDate ASC';
+      try {
+        relatedEmails = database.query(query);
+      } catch (QueryException e){
+        //Perform exception handling here.
+      }
+      /*
+       * End SELECT * statment
+       */
+      oldEmailsSet.addAll(relatedEmails);
+    }
+    oldEmails.addAll(oldEmailsSet);
+    for(EmailMessage oldEmail: oldEmails) {
+      oldCaseIds.add(oldEmail.ParentId);
+    }
+    for(Id oldCaseId: oldCaseIds) {
+      oldCase = [SELECT Id, Status, RecordTypeId FROM Case WHERE Id = :oldCaseId];
+      if(newEmail.ParentId != oldCase.Id
+        && newEmail.Parent.ParentId != oldCase.Id
+        && newEmail.Parent.RecordTypeId == oldCase.RecordTypeId) {
+        // We have found an email from a case of the same RecordTypeID (email address) that does not have the same parentId or grandparentId. It is most likely a duplicate.
+        
+        // Activate old email's case if it isn't already
+        if(oldCase.Status == 'Closed'){
+          oldCase.Status = 'Active';
+          update oldCase;
+        }
+        
+        // Clone new email onto old email's case
+        EmailMessage newEmailClone = newEmail.clone(false, false, true, false);
+        newEmailClone.ParentId = oldCase.Id;
+        // This next line of code is to prevent errors from incorrect picklist value, we don't seem to use it anyway.
+        newEmailClone.ValidatedFromAddress = null;
+        newEmailClone.Cloned_From_Case__c = newEmail.ParentId;
+        insert(newEmailClone);
+        // Retrieve new email's attachments
+        /*
+         * What follows is essentailly an artificial SELECT * statement workaround
+         * Our objective here is to get any/all custom fields so we don't need to update the code later.
+         */
+        // Initialize setup variables
+        objectName = 'Attachment';
+        query = 'SELECT';
+        objectFields = Schema.getGlobalDescribe().get(objectName).getDescribe().fields.getMap();
+        // Grab the fields from the describe method and append them to the queryString one by one.
+        for(String field : objectFields.keySet()) {
+          query += ' ' + field + ',';
+        }
+        // Manually add related object's fields that are needed.
+        query += '';
+        // Strip off the last comma if it exists.
+        if (query.subString(query.Length()-1,query.Length()) == ','){
+          query = query.subString(0,query.Length()-1);
+        }
+        // Add FROM statement
+        query += ' FROM ' + objectName;
+        // Add on a WHERE/ORDER/LIMIT statement as needed
+        query += ' WHERE ParentId = :newEmailId';
+        try {
+          newEmailAttachments = database.query(query);
+        } catch (QueryException e){
+          //Perform exception handling here.
+        }
+        /*
+         * End SELECT * statment
+         */
+        // Clone attachments onto cloned email
+        for(Attachment a :newEmailAttachments) {
+          Attachment aClone = a.clone(false, true, true, true);
+          aClone.ParentId = newEmailClone.Id;
+          insert aClone;
+        }
+        
+        // Make new email's case is a child of old email's case and close child case
+        newCase = [SELECT Id, ParentId, Status, Reason FROM Case WHERE Id = :newEmail.ParentId];
+        newCase.ParentId = oldCase.Id;
+        newCase.Status = 'Closed';
+        newCase.Reason = 'Duplicate';
+        update newCase;
+      }
+    }
+  }
+  public String getFirstMessageIdFromHeaderValue(string value) {
+    Integer ltIndex = value.indexOf('<');
+    Integer gtIndex = value.indexOf('>');
+    return value.mid(ltIndex + 1, gtIndex - ltIndex - 1);
+    }
+  }
+}
