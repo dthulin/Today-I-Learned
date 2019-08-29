@@ -8,10 +8,10 @@ case to protect trade secrets).
 
 It's tempting for a new programmer to approach this type of problem with a lot of nested For loops. When all you know how to
 use is a hammer, everything you see is a nail, after all. But with the quantity of data that this was built for it would take
-several minutes to process that way. However, even when the data sets you're dealin with should always be limited, it's best
-to be in the habit of double checking every time you're about to use a For loop to see if you're already in an iterative
-loop. Defaulting to the use of Maps will prevent your code from becoming a bottle neck down the road as things begin to scale.
-The use of Maps here reduces that time down to a matter of seconds. Maps are pretty standard data structures in many strongly
+several minutes to process that way. The use of Maps here reduces that time down to a matter of seconds. However, even when
+the data sets you're dealing with should always be limited, or you don't expect your function to ever be called from within
+another loop, it's best to be in the habit of defaulting to the use of Maps whenever possible, as this will prevent your code
+from becoming a bottle neck down the road as things begin to scale. Maps are pretty standard data structures in many strongly
 typed languages but they took a while to get to javascript.
 
 Note the term "Map" in javascript can be used to reference 2 seperate things:
